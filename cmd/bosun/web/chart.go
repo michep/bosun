@@ -150,6 +150,7 @@ func Graph(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) (interf
 			Title: fmt.Sprintf("%v - %v", oreq.Start, queries),
 		}
 		c.XRange.Time = true
+		c.XRange.TicSetting = chart.TicSetting{TLocation: time.Local}
 		if min, err := strconv.ParseFloat(r.FormValue("min"), 64); err == nil {
 			c.YRange.MinMode.Fixed = true
 			c.YRange.MinMode.Value = min
