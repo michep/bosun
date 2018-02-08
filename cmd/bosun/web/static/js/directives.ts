@@ -35,16 +35,13 @@ bosunApp.directive('tsComputations', () => {
 function fmtDuration(v: any) {
     var diff = moment.duration(v, 'milliseconds');
     var f;
-    if (Math.abs(v) < 60000) {
-        return diff.format('ss[s]');
-    }
-    return diff.format('d[d]hh[h]mm[m]ss[s]');
+    return diff.format('y[y]M[m]d[d]hh[h]mm[m]ss[s]');
 }
 
 
 function fmtTime(v: any) {
-    var m = moment(v).utc();
-    var now = moment().utc();
+    var m = moment(v).local();
+    var now = moment().local();
     var msdiff = now.diff(m);
     var ago = '';
     var inn = '';
@@ -53,7 +50,8 @@ function fmtTime(v: any) {
     } else {
         inn = 'in ';
     }
-    return m.format() + ' UTC (' + inn + fmtDuration(msdiff) + ago + ')';
+    var z = moment.tz(moment.tz.guess()).format("z");
+    return m.local().format() + ' ' + z + ' (' + inn + fmtDuration(msdiff) + ago + ')';
 }
 
 function parseDuration(v: string) {
@@ -274,7 +272,7 @@ bosunApp.directive('tsTimeLine', () => {
                 var height = svgHeight - margin.top - margin.bottom;
                 var svgWidth = elem.width();
                 var width = svgWidth - margin.left - margin.right;
-                var xScale = d3.time.scale.utc().range([0, width]);
+                var xScale = d3.time.scale().range([0, width]);
                 var xAxis = d3.svg.axis()
                     .scale(xScale)
                     .orient('bottom');
@@ -575,7 +573,7 @@ bosunApp.directive('tsGraph', ['$window', 'nfmtFilter', function($window: ng.IWi
             var svgWidth: number;
             var width: number;
             var yScale = d3.scale.linear().range([height, 0]);
-            var xScale = d3.time.scale.utc();
+            var xScale = d3.time.scale();
             var xAxis = d3.svg.axis()
                 .orient('bottom');
             var yAxis = d3.svg.axis()
@@ -1051,15 +1049,15 @@ bosunApp.directive('tsGraph', ['$window', 'nfmtFilter', function($window: ng.IWi
                 }
                 var extent = brush.extent();
                 scope.annotation = new Annotation();
-                scope.annotation.StartDate = moment(extent[0]).utc().format(timeFormat);
-                scope.annotation.EndDate = moment(extent[1]).utc().format(timeFormat);
+                scope.annotation.StartDate = moment(extent[0]).local().format(timeFormat);
+                scope.annotation.EndDate = moment(extent[1]).local().format(timeFormat);
                 scope.$apply(); // This logs a console type error, but also works .. odd.
                 angular.element('#modalShower').trigger('click');
             }
 
             var mfmt = 'YYYY/MM/DD-HH:mm:ss';
             function datefmt(d: any) {
-                return moment(d).utc().format(mfmt);
+                return moment(d).local().format(mfmt);
             }
         },
     };

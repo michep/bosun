@@ -435,6 +435,8 @@ interface MomentStatic {
      */
     ISO_8601(): void;
 
+    tz: any;
+
 }
 
 declare var moment: MomentStatic;
