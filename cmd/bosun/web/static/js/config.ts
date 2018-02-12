@@ -352,7 +352,7 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
 	$scope.setNotificationToShow = (n:string)=>{
 		$scope.notificationToShow = n;
 	}
-	
+
 	var line_re = /test:(\d+)/;
 	$scope.validate = () => {
 		$http.post('/api/config_test', $scope.config_text)
@@ -390,8 +390,8 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
 		$location.search('runningHash', $scope.runningHash)
 		$location.search('runningChanged', $scope.runningChanged)
 		$scope.animate();
-		var from = moment.utc($scope.fromDate + ' ' + $scope.fromTime);
-		var to = moment.utc($scope.toDate + ' ' + $scope.toTime);
+		var from = moment($scope.fromDate + ' ' + $scope.fromTime, moment.defaultFormat).utc();
+		var to = moment($scope.toDate + ' ' + $scope.toTime, moment.defaultFormat).utc();
 		if (!from.isValid()) {
 			from = to;
 		}
@@ -399,7 +399,7 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
 			to = from;
 		}
 		if (!from.isValid() && !to.isValid()) {
-			from = to = moment.utc();
+			from = to = moment().utc();
 		}
 		var diff = from.diff(to);
 		var intervals;
@@ -562,6 +562,10 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
 			return "alert-success"
 		}
 		return "alert-danger"
+	}
+
+	$scope.utc2local = (utc_date: any) => {
+		return moment.utc(utc_date, moment.defaultFormat).local().format();
 	}
 
 	return $scope;
