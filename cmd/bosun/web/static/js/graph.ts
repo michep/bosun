@@ -291,16 +291,16 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
 	};
 	var isRel = /^(\d+)(\w)-ago$/;
 	function RelToAbs(m: RegExpExecArray) {
-		return moment().utc().subtract(parseFloat(m[1]), duration_map[m[2]]).format();
+		return moment().local().subtract(parseFloat(m[1]), duration_map[m[2]]).format();
 	}
 	function AbsToRel(s: string) {
 		//Not strict parsing of the time format. For example, just "2014" will be valid
-		var t = moment.utc(s, moment.defaultFormat).fromNow();
+		var t = moment(s, moment.defaultFormat).fromNow();
 		return t;
 	}
 	function SwapTime(s: string) {
 		if (!s) {
-			return moment().utc().format();
+			return moment().local().format();
 		}
 		var m = isRel.exec(s);
 		if (m) {
@@ -452,8 +452,8 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
 	}
 	function getRequest() {
 		request = new GraphRequest;
-		request.start = $scope.start;
-		request.end = $scope.end;
+		request.start = isRel.exec($scope.start) ? $scope.start : moment($scope.start, moment.defaultFormat).utc().format();
+		request.end = isRel.exec($scope.end) ? $scope.end : moment($scope.end, moment.defaultFormat).utc().format();
 		angular.forEach($scope.query_p, function (p) {
 			if (!p.metric) {
 				return;

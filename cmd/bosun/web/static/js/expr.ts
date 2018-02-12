@@ -38,9 +38,12 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 	$scope.running = current;
 	$scope.tab = search.tab || 'results';
 	$scope.animate();
+	var dat = $scope.date ? $scope.date : ($scope.time ? moment().format("YYYY-MM-DD") : "");
+	var ts = moment(dat + " " + $scope.time, "YYYY-MM-DD HH:mm:ss").utc();
+	var not_empty = $scope.date || $scope.time;
 	$http.post('/api/expr?' +
-		'date=' + encodeURIComponent($scope.date) +
-		'&time=' + encodeURIComponent($scope.time),current)
+		'date=' + (not_empty ? encodeURIComponent(ts.format("YYYY-MM-DD")) : "") +
+		'&time=' + (not_empty ? encodeURIComponent(ts.format("HH:mm:ss")) : ""), current)
 		.success((data: any) => {
 			$scope.result = data.Results;
 			$scope.queries = data.Queries;
