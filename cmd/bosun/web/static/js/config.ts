@@ -399,7 +399,7 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
 			to = from;
 		}
 		if (!from.isValid() && !to.isValid()) {
-			from = to = moment().utc();
+			from = to = moment.utc();
 		}
 		var diff = from.diff(to);
 		var intervals;
