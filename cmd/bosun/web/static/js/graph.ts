@@ -452,8 +452,10 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
 	}
 	function getRequest() {
 		request = new GraphRequest;
-		request.start = isRel.exec($scope.start) ? $scope.start : moment($scope.start, moment.defaultFormat).utc().format();
-		request.end = isRel.exec($scope.end) ? $scope.end : moment($scope.end, moment.defaultFormat).utc().format();
+		var ts = moment($scope.start, moment.defaultFormat).utc();
+		var te = moment($scope.end, moment.defaultFormat).utc();
+		request.start = isRel.exec($scope.start) ? $scope.start : (ts.isValid() ? ts.format() : "");
+		request.end = isRel.exec($scope.end) ? $scope.end : (te.isValid() ? te.format() : "");
 		angular.forEach($scope.query_p, function (p) {
 			if (!p.metric) {
 				return;
