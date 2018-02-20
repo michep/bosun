@@ -374,6 +374,9 @@ func (s *Schedule) MarshalGroups(T miniprofiler.Timer, filter string) (*StateGro
 			err = err2
 			return
 		}
+		if len(filter) > 0 && !strings.ContainsAny(filter, ":") {
+			filter = "subject:" + filter
+		}
 		var parsedExpr *boolq.Tree
 		parsedExpr, err2 = boolq.Parse(filter)
 		if err2 != nil {
