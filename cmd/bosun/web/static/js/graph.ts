@@ -269,8 +269,11 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
 	angular.forEach(request.queries, (q, i) => {
 		$scope.query_p[i] = new Query($scope.filterSupport, q);
 	});
-	$scope.start = request.start;
-	$scope.end = request.end;
+	var isRel = /^(\d+)(\w)-ago$/;
+	var ts = moment.utc(request.start, moment.defaultFormat).local();
+	var te = moment.utc(request.end, moment.defaultFormat).local();
+	$scope.start = isRel.exec(request.start) ? request.start : (ts.isValid() ? ts.format() : "");
+	$scope.end = isRel.exec(request.end) ? request.end : (te.isValid() ? te.format() : "");
 	$scope.autods = search.autods != 'false';
 	$scope.refresh = search.refresh == 'true';
 	$scope.normalize = search.normalize == 'true';
@@ -289,7 +292,6 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
 		"n": "M",
 		"y": "y",
 	};
-	var isRel = /^(\d+)(\w)-ago$/;
 	function RelToAbs(m: RegExpExecArray) {
 		return moment().local().subtract(parseFloat(m[1]), duration_map[m[2]]).format();
 	}
