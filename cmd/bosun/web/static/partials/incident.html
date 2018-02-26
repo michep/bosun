@@ -111,7 +111,7 @@
 					<td ng-bind="a.Type"></td>
 					<td ng-bind="a.User"></td>
 					<td ng-bind="a.Message"></td>
-					<td><div ng-show="a.Time" ts-time="a.Time"></div></td>
+					<td><div ng-show="a.Time" ts-time="a.Time" ts-from-start="incident.Start"></div></td>
 					<td><div ng-show="a.Deadline" ts-time="a.Deadline"></div></td>
 				</tr>
 			</tbody>

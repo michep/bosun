@@ -78,6 +78,11 @@ bosunApp.directive("tsTime", function() {
                     var duration = fmtDuration(diff);
                     text += " for " + duration;
                 }
+				if (attrs.tsFromStart) {
+					var diff = moment(scope.$eval(attrs.tsFromStart)).diff(m);
+					var duration = fmtDuration(diff);
+					text += " (" + duration + " from Incident start)";
+				}
                 if (attrs.noLink) {
                     elem.text(text);
                 } else {
