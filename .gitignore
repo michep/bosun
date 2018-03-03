@@ -6,3 +6,8 @@ cmd/bosun/ledis_data/
 .idea
 cmd/bosun/web/static.go
 cmd/bosun/web/static/js/bosun.js
+cmd/bosun/bosun
+cmd/scollector/scollector.toml
+cmd/scollector/scollector.exe
+cmd/bosun/bosun.toml
+cmd/scollector/scollector
