@@ -586,12 +586,28 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
         $scope.date = search.date || '';
         $scope.time = search.time || '';
         $scope.expr = current;
+        var editor;
+        $scope.aceMode = 'bosun';
+        $scope.aceTheme = 'chrome';
+        $scope.aceLoaded = function (_editor) {
+            editor = _editor;
+            $scope.editor = editor;
+            editor.focus();
+            editor.getSession().setUseWrapMode(true);
+            editor.getSession().setMode({
+                path: 'ace/mode/' + $scope.aceMode,
+                v: Date.now()
+            });
+        };
         $scope.running = current;
         $scope.tab = search.tab || 'results';
         $scope.animate();
+        var dat = $scope.date ? $scope.date : ($scope.time ? moment().format("YYYY-MM-DD") : "");
+        var ts = moment(dat + " " + $scope.time, "YYYY-MM-DD HH:mm:ss").utc();
+        var not_empty = $scope.date || $scope.time;
         $http.post('/api/expr?' +
-            'date=' + encodeURIComponent($scope.date) +
-            '&time=' + encodeURIComponent($scope.time), current)
+            'date=' + (not_empty ? encodeURIComponent(ts.format("YYYY-MM-DD")) : "") +
+            '&time=' + (not_empty ? encodeURIComponent(ts.format("HH:mm:ss")) : ""), current)
             .success(function (data) {
             $scope.result = data.Results;
             $scope.queries = data.Queries;
@@ -1182,8 +1198,8 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
             $location.search('runningHash', $scope.runningHash);
             $location.search('runningChanged', $scope.runningChanged);
             $scope.animate();
-            var from = moment.utc($scope.fromDate + ' ' + $scope.fromTime);
-            var to = moment.utc($scope.toDate + ' ' + $scope.toTime);
+            var from = moment($scope.fromDate + ' ' + $scope.fromTime, moment.defaultFormat).utc();
+            var to = moment($scope.toDate + ' ' + $scope.toTime, moment.defaultFormat).utc();
             if (!from.isValid()) {
                 from = to;
             }
@@ -1347,6 +1363,9 @@ bosunControllers.controller('ConfigCtrl', ['$scope', '$http', '$location', '$rou
             }
             return "alert-danger";
         };
+        $scope.utc2local = function (utc_date) {
+            return moment.utc(utc_date, moment.defaultFormat).local().format();
+        };
         return $scope;
     }]);
 var NotificationController = /** @class */ (function () {
@@ -1439,14 +1458,11 @@ bosunApp.directive('tsComputations', function () {
 function fmtDuration(v) {
     var diff = moment.duration(v, 'milliseconds');
     var f;
-    if (Math.abs(v) < 60000) {
-        return diff.format('ss[s]');
-    }
-    return diff.format('d[d]hh[h]mm[m]ss[s]');
+    return diff.format('y[y]M[m]d[d]hh[h]mm[m]ss[s]');
 }
 function fmtTime(v) {
-    var m = moment(v).utc();
-    var now = moment().utc();
+    var m = moment(v).local();
+    var now = moment().local();
     var msdiff = now.diff(m);
     var ago = '';
     var inn = '';
@@ -1456,7 +1472,8 @@ function fmtTime(v) {
     else {
         inn = 'in ';
     }
-    return m.format() + ' UTC (' + inn + fmtDuration(msdiff) + ago + ')';
+    var z = moment.tz(moment.tz.guess()).format("z");
+    return m.local().format() + ' ' + z + ' (' + inn + fmtDuration(msdiff) + ago + ')';
 }
 function parseDuration(v) {
     var pattern = /(\d+)(d|y|n|h|m|s)(-ago)?/;
@@ -1476,6 +1493,11 @@ bosunApp.directive("tsTime", function () {
                     var diff = moment(scope.$eval(attrs.tsEndTime)).diff(m);
                     var duration = fmtDuration(diff);
                     text += " for " + duration;
+                }
+                if (attrs.tsFromStart) {
+                    var diff = moment(scope.$eval(attrs.tsFromStart)).diff(m);
+                    var duration = fmtDuration(diff);
+                    text += " (" + duration + " from Incident start)";
                 }
                 if (attrs.noLink) {
                     elem.text(text);
@@ -1661,7 +1683,7 @@ bosunApp.directive('tsTimeLine', function () {
                 var height = svgHeight - margin.top - margin.bottom;
                 var svgWidth = elem.width();
                 var width = svgWidth - margin.left - margin.right;
-                var xScale = d3.time.scale.utc().range([0, width]);
+                var xScale = d3.time.scale().range([0, width]);
                 var xAxis = d3.svg.axis()
                     .scale(xScale)
                     .orient('bottom');
@@ -1957,7 +1979,7 @@ bosunApp.directive('tsGraph', ['$window', 'nfmtFilter', function ($window, fmtfi
                 var svgWidth;
                 var width;
                 var yScale = d3.scale.linear().range([height, 0]);
-                var xScale = d3.time.scale.utc();
+                var xScale = d3.time.scale();
                 var xAxis = d3.svg.axis()
                     .orient('bottom');
                 var yAxis = d3.svg.axis()
@@ -2423,14 +2445,14 @@ bosunApp.directive('tsGraph', ['$window', 'nfmtFilter', function ($window, fmtfi
                     }
                     var extent = brush.extent();
                     scope.annotation = new Annotation();
-                    scope.annotation.StartDate = moment(extent[0]).utc().format(timeFormat);
-                    scope.annotation.EndDate = moment(extent[1]).utc().format(timeFormat);
+                    scope.annotation.StartDate = moment(extent[0]).local().format(timeFormat);
+                    scope.annotation.EndDate = moment(extent[1]).local().format(timeFormat);
                     scope.$apply(); // This logs a console type error, but also works .. odd.
                     angular.element('#modalShower').trigger('click');
                 }
                 var mfmt = 'YYYY/MM/DD-HH:mm:ss';
                 function datefmt(d) {
-                    return moment(d).utc().format(mfmt);
+                    return moment(d).local().format(mfmt);
                 }
             }
         };
@@ -2703,8 +2725,11 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
         angular.forEach(request.queries, function (q, i) {
             $scope.query_p[i] = new Query($scope.filterSupport, q);
         });
-        $scope.start = request.start;
-        $scope.end = request.end;
+        var isRel = /^(\d+)(\w)-ago$/;
+        var ts = moment.utc(request.start, moment.defaultFormat).local();
+        var te = moment.utc(request.end, moment.defaultFormat).local();
+        $scope.start = isRel.exec(request.start) ? request.start : (ts.isValid() ? ts.format() : "");
+        $scope.end = isRel.exec(request.end) ? request.end : (te.isValid() ? te.format() : "");
         $scope.autods = search.autods != 'false';
         $scope.refresh = search.refresh == 'true';
         $scope.normalize = search.normalize == 'true';
@@ -2723,18 +2748,17 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
             "n": "M",
             "y": "y"
         };
-        var isRel = /^(\d+)(\w)-ago$/;
         function RelToAbs(m) {
-            return moment().utc().subtract(parseFloat(m[1]), duration_map[m[2]]).format();
+            return moment().local().subtract(parseFloat(m[1]), duration_map[m[2]]).format();
         }
         function AbsToRel(s) {
             //Not strict parsing of the time format. For example, just "2014" will be valid
-            var t = moment.utc(s, moment.defaultFormat).fromNow();
+            var t = moment(s, moment.defaultFormat).fromNow();
             return t;
         }
         function SwapTime(s) {
             if (!s) {
-                return moment().utc().format();
+                return moment().local().format();
             }
             var m = isRel.exec(s);
             if (m) {
@@ -2887,8 +2911,10 @@ bosunControllers.controller('GraphCtrl', ['$scope', '$http', '$location', '$rout
         }
         function getRequest() {
             request = new GraphRequest;
-            request.start = $scope.start;
-            request.end = $scope.end;
+            var ts = moment($scope.start, moment.defaultFormat).utc();
+            var te = moment($scope.end, moment.defaultFormat).utc();
+            request.start = isRel.exec($scope.start) ? $scope.start : (ts.isValid() ? ts.format() : "");
+            request.end = isRel.exec($scope.end) ? $scope.end : (te.isValid() ? te.format() : "");
             angular.forEach($scope.query_p, function (p) {
                 if (!p.metric) {
                     return;
@@ -3599,7 +3625,6 @@ bosunApp.directive('tsAckGroup', ['$location', '$timeout', function ($location, 
                         scope.exp_coll = 'collapse';
                         for (var i = 0; i < scope.groups.length; i++) {
                             scope.shown[i] = true;
-                            scope.groups[i].show = false;
                         }
                     }
                     else {
@@ -3816,7 +3841,6 @@ var TokenListController = /** @class */ (function () {
         this.auth = auth;
         this["delete"] = function () {
             _this.status = "Deleting...";
-            _this.deleteTarget = "";
             _this.$http["delete"]("/api/tokens?hash=" + encodeURIComponent(_this.deleteTarget))
                 .then(function () {
                 _this.status = "";
