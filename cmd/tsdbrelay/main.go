@@ -40,6 +40,8 @@ var (
 
 	redisHost = flag.String("redis", "", "redis host for aggregating external counters")
 	redisDb   = flag.Int("db", 0, "redis db to use for counters")
+
+	maxIdleConnsPerHost = flag.Int("maxIdleConnsPerHost", 100, "MaxIdleConnsPerHost for net/http transport")
 )
 
 var (
@@ -71,7 +73,8 @@ func init() {
 		Transport: &tsdbrelayHTTPTransport{
 			"Tsdbrelay/" + version.ShortVersion(),
 			&httpcontrol.Transport{
-				RequestTimeout: time.Minute,
+				RequestTimeout:      time.Minute,
+				MaxIdleConnsPerHost: *maxIdleConnsPerHost,
 			},
 		},
 	}
