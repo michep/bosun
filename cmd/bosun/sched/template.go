@@ -96,8 +96,8 @@ func (c *Context) Last() interface{} {
 // match the context of the alert, and returns a link to the expression page.
 func (c *Context) Expr(v string) string {
 	p := url.Values{}
-	p.Add("date", c.runHistory.Start.Format(`2006-01-02`))
-	p.Add("time", c.runHistory.Start.Format(`15:04:05`))
+	p.Add("date", c.runHistory.Start.Local.Format(`2006-01-02`))
+	p.Add("time", c.runHistory.Start.Local.Format(`15:04:05`))
 	p.Add("expr", base64.StdEncoding.EncodeToString([]byte(opentsdb.ReplaceTags(v, c.AlertKey.Group()))))
 	return c.schedule.SystemConf.MakeLink("/expr", &p)
 }
@@ -108,8 +108,8 @@ func (c *Context) GraphLink(v string) string {
 	p := url.Values{}
 	p.Add("expr", base64.StdEncoding.EncodeToString([]byte(v)))
 	p.Add("tab", "graph")
-	p.Add("date", c.runHistory.Start.Format(`2006-01-02`))
-	p.Add("time", c.runHistory.Start.Format(`15:04:05`))
+	p.Add("date", c.runHistory.Start.Local.Format(`2006-01-02`))
+	p.Add("time", c.runHistory.Start.Local.Format(`15:04:05`))
 	return c.schedule.SystemConf.MakeLink("/expr", &p)
 }
 
@@ -117,8 +117,8 @@ func (c *Context) Rule() string {
 	p := url.Values{}
 	time := c.runHistory.Start
 	p.Add("alert", c.Alert.Name)
-	p.Add("fromDate", time.Format("2006-01-02"))
-	p.Add("fromTime", time.Format("15:04"))
+	p.Add("fromDate", time.Local.Format("2006-01-02"))
+	p.Add("fromTime", time.Local.Format("15:04"))
 	p.Add("template_group", c.Tags)
 	return c.schedule.SystemConf.MakeLink("/config", &p)
 }
@@ -442,7 +442,7 @@ func (c *Context) graph(v interface{}, unit string, filter bool) (val interface{
 	const height = 600
 	footerHTML := fmt.Sprintf(`<p><small>Query: %s<br>Time: %s</small></p>`,
 		htemplate.HTMLEscapeString(exprText),
-		c.runHistory.Start.Format(time.RFC3339))
+		c.runHistory.Start.Local.Format(time.RFC3339))
 	if c.IsEmail {
 		err := c.schedule.ExprPNG(nil, &buf, width, height, unit, res)
 		if err != nil {
