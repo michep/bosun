@@ -31,8 +31,8 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 	catch (e) {
 		current = '';
 	}
-	if (!current) {
-		$location.search('expr', btoa('avg(q("avg:rate:os.cpu{host=*bosun*}", "5m", "")) > 80'));
+	if (!current && $scope.exampleExpression) {
+		$location.search('expr', btoa($scope.exampleExpression));
 		return;
 	}
 	$scope.date = search.date || '';
@@ -60,45 +60,60 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 	var dat = $scope.date ? $scope.date : ($scope.time ? moment().format("YYYY-MM-DD") : "");
 	var ts = moment(dat + " " + $scope.time, "YYYY-MM-DD HH:mm:ss").utc();
 	var not_empty = $scope.date || $scope.time;
-	$http.post('/api/expr?' +
+
+	if ($scope.expr) {
+
+		$scope.running = $scope.expr;
+
+		$http.post('/api/expr?' +
 		'date=' + (not_empty ? encodeURIComponent(ts.format("YYYY-MM-DD")) : "") +
 		'&time=' + (not_empty ? encodeURIComponent(ts.format("HH:mm:ss")) : ""), current)
-		.success((data: any) => {
-			$scope.result = data.Results;
-			$scope.queries = data.Queries;
-			$scope.result_type = data.Type;
-			if (data.Type == 'series') {
-				$scope.svg_url = '/api/egraph/' + btoa(current) + '.svg?now=' + Math.floor(Date.now() / 1000);
-				$scope.graph = toChart(data.Results);
-			}
-			if (data.Type == 'number') {
-				 angular.forEach(data.Results, (d) => {
-					var name = '{';
-					angular.forEach(d.Group, (tagv, tagk) => {
+			.success((data: any) => {
+				$scope.result = data.Results;
+				$scope.queries = data.Queries;
+				$scope.result_type = data.Type;
+				if (data.Type == 'series') {
+					$scope.svg_url = '/api/egraph/' + btoa(current) + '.svg?now=' + Math.floor(Date.now() / 1000);
+					$scope.graph = toChart(data.Results);
+				}
+				if (data.Type == 'number') {
+					angular.forEach(data.Results, (d) => {
+						var name = '{';
+						angular.forEach(d.Group, (tagv, tagk) => {
 							if (name.length > 1) {
-								 name += ',';
+								name += ',';
 							}
 							name += tagk + '=' + tagv;
+						});
+						name += '}';
+						d.name = name;
 					});
-					name += '}';
-					d.name = name;
-				 });
-				$scope.bar = data.Results;
-			}
-			$scope.running = '';
-		})
-		.error((error) => {
-			$scope.error = error;
-			$scope.running = '';
-		})
-		.finally(() => {
-			$scope.stop();
-		});
+					$scope.bar = data.Results;
+				}
+				$scope.running = '';
+			})
+			.error((error) => {
+				$scope.error = error;
+				$scope.running = '';
+			})
+			.finally(() => {
+				$scope.stop();
+			});
+	}
+
 	$scope.set = () => {
-		$location.search('expr', btoa($scope.expr));
+
 		$location.search('date', $scope.date || null);
 		$location.search('time', $scope.time || null);
-		$route.reload();
+
+		if ($scope.expr) {
+			$location.search('expr', btoa($scope.expr));
+			$route.reload();
+		} else {
+			$scope.error = "expr: empty";
+			$scope.result = null;
+			$scope.queries = null;
+		}
 	};
 	function toChart(res: any) {
 		var graph: any = [];
@@ -131,4 +146,5 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 			$scope.set();
 		}
 	};
+
 }]);
