@@ -612,6 +612,16 @@ func ParseTags(t string) (TagSet, error) {
 	return ParseTagsRE(t, false)
 }
 
+var tsdbFilters = map[string]bool{
+	"iliteral_or":     true,
+	"iwildcard":       true,
+	"literal_or":      true,
+	"not_iliteral_or": true,
+	"not_literal_or":  true,
+	"regexp":          true,
+	"wildcard":        true,
+}
+
 // ParseTags parses OpenTSDB tagk=tagv pairs of the form: k=v,m=o. Validation
 // errors do not stop processing, and will return a non-nil TagSet.
 func ParseTagsRE(t string, regexp bool) (TagSet, error) {
@@ -632,9 +642,10 @@ func ParseTagsRE(t string, regexp bool) (TagSet, error) {
 			}
 		}
 
-		if !regexp {
+		fi := strings.Split(sp[1], "(")[0]
+		if _, ok := tsdbFilters[fi]; !ok && !regexp {
 			for _, s := range strings.Split(sp[1], "|") {
-				if s == "*" {
+				if strings.Contains(s, "*") {
 					continue
 				}
 				if !ValidTSDBString(s) {
