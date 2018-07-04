@@ -1,32 +1,23 @@
 package main
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	_ "expvar"
 	"flag"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/facebookgo/httpcontrol"
+	"github.com/buaazp/fasthttprouter"
+	"github.com/valyala/fasthttp"
 
-	version "bosun.org/_version"
-
-	"bosun.org/cmd/tsdbrelay/denormalize"
+	"bosun.org/_version"
 	"bosun.org/collect"
 	"bosun.org/metadata"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
-	"bosun.org/util"
 )
 
 var (
@@ -35,48 +26,23 @@ var (
 	secondaryRelays = flag.String("r", "", "Additional relays to send data to. Intended for secondary data center replication. Only response from primary tsdb server wil be relayed to clients.")
 	tsdbServer      = flag.String("t", "", "Target OpenTSDB server. Can specify port with host:port.")
 	logVerbose      = flag.Bool("v", false, "enable verbose logging")
-	toDenormalize   = flag.String("denormalize", "", "List of metrics to denormalize. Comma seperated list of `metric__tagname__tagname` rules. Will be translated to `__tagvalue.tagvalue.metric`")
 	flagVersion     = flag.Bool("version", false, "Prints the version and exits.")
-
-	redisHost = flag.String("redis", "", "redis host for aggregating external counters")
-	redisDb   = flag.Int("db", 0, "redis db to use for counters")
+	pprofEnalbled   = flag.Bool("pprof", false, "Enable pprof web interface.")
+	pprofListenAddr = flag.String("p", ":6060", "Pprof listen address.")
 )
 
 var (
-	tsdbPutURL    string
-	bosunIndexURL string
-
-	denormalizationRules map[string]*denormalize.DenormalizationRule
-
-	relayDataUrls     []string
-	relayMetadataUrls []string
-
-	tags = opentsdb.TagSet{}
+	bosunIndexURL     string
+	relayDataUrls     []*url.URL
+	relayMetadataUrls []*url.URL
+	tags              = opentsdb.TagSet{}
+	fastclient        *fasthttp.Client
 )
 
-type tsdbrelayHTTPTransport struct {
-	UserAgent string
-	http.RoundTripper
-}
-
-func (t *tsdbrelayHTTPTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.Header.Get("User-Agent") == "" {
-		req.Header.Add("User-Agent", t.UserAgent)
-	}
-	return t.RoundTripper.RoundTrip(req)
-}
-
 func init() {
-	client := &http.Client{
-		Transport: &tsdbrelayHTTPTransport{
-			"Tsdbrelay/" + version.ShortVersion(),
-			&httpcontrol.Transport{
-				RequestTimeout: time.Minute,
-			},
-		},
+	fastclient = &fasthttp.Client{
+		Name: "Tsdbrelay/" + version.ShortVersion(),
 	}
-	http.DefaultClient = client
-	collect.DefaultClient = client
 }
 
 func main() {
@@ -98,13 +64,6 @@ func main() {
 	slog.Infoln("listen on", *listenAddr)
 	slog.Infoln("relay to bosun at", *bosunServer)
 	slog.Infoln("relay to tsdb at", *tsdbServer)
-	if *toDenormalize != "" {
-		var err error
-		denormalizationRules, err = denormalize.ParseDenormalizationRules(*toDenormalize)
-		if err != nil {
-			slog.Fatal(err)
-		}
-	}
 
 	tsdbURL, err := parseHost(*tsdbServer, "", true)
 	if err != nil {
@@ -112,7 +71,7 @@ func main() {
 	}
 	u := *tsdbURL
 	u.Path = "/api/put"
-	tsdbPutURL = u.String()
+
 	bosunURL, err := parseHost(*bosunServer, "", true)
 	if err != nil {
 		slog.Fatalf("Invalid -b value: %s", err)
@@ -129,35 +88,45 @@ func main() {
 			f := u.Fragment
 			u.Fragment = ""
 			if f == "" || strings.ToLower(f) == "data-only" {
-				relayDataUrls = append(relayDataUrls, u.String())
+				relayDataUrls = append(relayDataUrls, u)
 			}
 			if f == "" || strings.ToLower(f) == "metadata-only" || strings.ToLower(f) == "bosun-index" {
 				u.Path = "/api/metadata/put"
-				relayMetadataUrls = append(relayMetadataUrls, u.String())
+				relayMetadataUrls = append(relayMetadataUrls, u)
 			}
 			if strings.ToLower(f) == "bosun-index" {
 				u.Path = "/api/index"
-				relayDataUrls = append(relayDataUrls, u.String())
+				relayDataUrls = append(relayDataUrls, u)
 			}
 		}
 	}
 
-	tsdbProxy := util.NewSingleHostProxy(tsdbURL)
-	bosunProxy := util.NewSingleHostProxy(bosunURL)
+	router := fasthttprouter.New()
+
+	tsdbProxy := &fasthttp.HostClient{
+		Addr: tsdbURL.Host,
+		Name: "Tsdbrelay/" + version.ShortVersion(),
+	}
+	bosunProxy := &fasthttp.HostClient{
+		Addr: bosunURL.Host,
+		Name: "Tsdbrelay/" + version.ShortVersion(),
+	}
 	rp := &relayProxy{
 		TSDBProxy:  tsdbProxy,
 		BosunProxy: bosunProxy,
 	}
-	http.HandleFunc("/api/put", func(w http.ResponseWriter, r *http.Request) {
-		rp.relayPut(w, r, true)
-	})
-	if *redisHost != "" {
-		http.HandleFunc("/api/count", collect.HandleCounterPut(*redisHost, *redisDb))
+
+	put := func(ctx *fasthttp.RequestCtx) {
+		rp.fastRelayPut(ctx)
 	}
-	http.HandleFunc("/api/metadata/put", func(w http.ResponseWriter, r *http.Request) {
-		rp.relayMetadata(w, r)
-	})
-	http.Handle("/", tsdbProxy)
+	router.POST("/api/put", put)
+
+	meta := func(ctx *fasthttp.RequestCtx) {
+		rp.fastRelayMetadata(ctx)
+	}
+	router.POST("/api/metadata/put", meta)
+
+	router.GET("/", func(ctx *fasthttp.RequestCtx) {})
 
 	collectUrl := &url.URL{
 		Scheme: "http",
@@ -183,7 +152,15 @@ func main() {
 	metadata.AddMetricMeta("tsdbrelay.metadata.error", metadata.Counter, metadata.Count, "Number of metadata puts that could not be relayed to bosun target")
 	metadata.AddMetricMeta("tsdbrelay.additional.puts.relayed", metadata.Counter, metadata.Count, "Number of successful puts relayed to additional targets")
 	metadata.AddMetricMeta("tsdbrelay.additional.puts.error", metadata.Counter, metadata.Count, "Number of puts that could not be relayed to additional targets")
-	slog.Fatal(http.ListenAndServe(*listenAddr, nil))
+
+	if *pprofEnalbled {
+		go func() {
+			slog.Infoln("pprof enabled and listen on", *pprofListenAddr)
+			http.ListenAndServe(*pprofListenAddr, nil)
+		}()
+	}
+
+	slog.Fatal(fasthttp.ListenAndServe(*listenAddr, router.Handler))
 }
 
 func verbose(format string, a ...interface{}) {
@@ -193,211 +170,119 @@ func verbose(format string, a ...interface{}) {
 }
 
 type relayProxy struct {
-	TSDBProxy  *httputil.ReverseProxy
-	BosunProxy *httputil.ReverseProxy
-}
-
-type passthru struct {
-	io.ReadCloser
-	buf bytes.Buffer
-}
-
-func (p *passthru) Read(b []byte) (int, error) {
-	n, err := p.ReadCloser.Read(b)
-	p.buf.Write(b[:n])
-	return n, err
-}
-
-type relayWriter struct {
-	http.ResponseWriter
-	code int
-}
-
-func (rw *relayWriter) WriteHeader(code int) {
-	rw.code = code
-	rw.ResponseWriter.WriteHeader(code)
+	TSDBProxy  *fasthttp.HostClient
+	BosunProxy *fasthttp.HostClient
 }
 
 var (
-	relayHeader  = "X-Relayed-From"
-	encHeader    = "Content-Encoding"
-	typeHeader   = "Content-Type"
-	accessHeader = "X-Access-Token"
-	myHost       string
+	relayHeader = "X-Relayed-From"
+	myHost      string
 )
 
-func (rp *relayProxy) relayPut(responseWriter http.ResponseWriter, r *http.Request, parse bool) {
-	isRelayed := r.Header.Get(relayHeader) != ""
-	reader := &passthru{ReadCloser: r.Body}
-	r.Body = reader
-	w := &relayWriter{ResponseWriter: responseWriter}
-	rp.TSDBProxy.ServeHTTP(w, r)
-	if w.code/100 != 2 {
-		verbose("relayPut got status %d", w.code)
+func (rp *relayProxy) fastRelayPut(ctx *fasthttp.RequestCtx) {
+	isRelayed := ctx.Request.Header.Peek(relayHeader) != nil
+	req := &ctx.Request
+	resp := &ctx.Response
+	req.Header.Del("Connection")
+	err := rp.TSDBProxy.Do(req, resp)
+	if err != nil || resp.Header.StatusCode()/100 != 2 {
+		verbose("ERROR relayPut got status: %d, error: %v, target: %v", resp.Header.StatusCode(), err, rp.TSDBProxy.Addr+string(req.URI().Path()))
 		collect.Add("puts.error", tags, 1)
 		return
 	}
-	verbose("relayed to tsdb")
+	verbose("relayed to tsdb, status: %v, target: %v", resp.Header.StatusCode(), rp.TSDBProxy.Addr+string(req.URI().Path()))
 	collect.Add("puts.relayed", tags, 1)
+
+	bosunIndexReq := fasthttp.AcquireRequest()
+	req.BodyWriteTo(bosunIndexReq.BodyWriter())
+	req.Header.CopyTo(&bosunIndexReq.Header)
+
 	// Send to bosun in a separate go routine so we can end the source's request.
-	go func() {
-		body := bytes.NewBuffer(reader.buf.Bytes())
-		req, err := http.NewRequest(r.Method, bosunIndexURL, body)
+	go func(req *fasthttp.Request) {
+		resp := fasthttp.AcquireResponse()
+		uri := fasthttp.AcquireURI()
+		defer func() {
+			fasthttp.ReleaseRequest(req)
+			fasthttp.ReleaseResponse(resp)
+			fasthttp.ReleaseURI(uri)
+		}()
+		uri.Parse(nil, []byte(bosunIndexURL))
+		req.SetRequestURIBytes(uri.Path())
+		err := rp.BosunProxy.Do(req, resp)
 		if err != nil {
-			verbose("bosun connect error: %v", err)
+			verbose("ERROR bosun relay error: %v, target: %v", err, rp.BosunProxy.Addr+string(req.URI().Path()))
 			return
 		}
-		if access := r.Header.Get(accessHeader); access != "" {
-			req.Header.Set(accessHeader, access)
-		}
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			verbose("bosun relay error: %v", err)
-			return
-		}
-		// Drain up to 512 bytes and close the body to let the Transport reuse the connection
-		io.CopyN(ioutil.Discard, resp.Body, 512)
-		resp.Body.Close()
-		verbose("bosun relay success")
-	}()
-	// Parse and denormalize datapoints
-	if !isRelayed && parse && denormalizationRules != nil {
-		go rp.denormalize(bytes.NewReader(reader.buf.Bytes()))
-	}
+		verbose("bosun relay success, status: %v, target: %v", resp.Header.StatusCode(), rp.BosunProxy.Addr+string(req.URI().Path()))
+	}(bosunIndexReq)
 
 	if !isRelayed && len(relayDataUrls) > 0 {
-		go func() {
+		relayReq := fasthttp.AcquireRequest()
+		req.BodyWriteTo(relayReq.BodyWriter())
+		req.Header.CopyTo(&relayReq.Header)
+		relayReq.Header.Add(relayHeader, myHost)
+		go func(req *fasthttp.Request) {
+			resp := fasthttp.AcquireResponse()
+			uri := fasthttp.AcquireURI()
+			defer func() {
+				fasthttp.ReleaseRequest(req)
+				fasthttp.ReleaseResponse(resp)
+				fasthttp.ReleaseURI(uri)
+			}()
 			for _, relayURL := range relayDataUrls {
-				body := bytes.NewBuffer(reader.buf.Bytes())
-				req, err := http.NewRequest(r.Method, relayURL, body)
+				uri.Parse([]byte(relayURL.Host), []byte(relayURL.Path))
+				req.SetRequestURIBytes(uri.FullURI())
+				err := fastclient.Do(req, resp)
 				if err != nil {
-					verbose("%s connect error: %v", relayURL, err)
+					verbose("ERROR secondary relay error: %v, target: %v", err, string(req.URI().FullURI()))
 					collect.Add("additional.puts.error", tags, 1)
 					continue
 				}
-				if contenttype := r.Header.Get(typeHeader); contenttype != "" {
-					req.Header.Set(typeHeader, contenttype)
-				}
-				if access := r.Header.Get(accessHeader); access != "" {
-					req.Header.Set(accessHeader, access)
-				}
-				if encoding := r.Header.Get(encHeader); encoding != "" {
-					req.Header.Set(encHeader, encoding)
-				}
-				req.Header.Add(relayHeader, myHost)
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					verbose("secondary relay error: %v", err)
-					collect.Add("additional.puts.error", tags, 1)
-					continue
-				}
-				// Drain up to 512 bytes and close the body to let the Transport reuse the connection
-				io.CopyN(ioutil.Discard, resp.Body, 512)
-				resp.Body.Close()
-				verbose("secondary relay success")
+				verbose("secondary relay success, status: %v, target: %v", resp.Header.StatusCode(), string(req.URI().FullURI()))
 				collect.Add("additional.puts.relayed", tags, 1)
 			}
-		}()
+		}(relayReq)
 	}
 }
 
-func (rp *relayProxy) denormalize(body io.Reader) {
-	gReader, err := gzip.NewReader(body)
-	if err != nil {
-		verbose("error making gzip reader: %v", err)
-		return
-	}
-	decoder := json.NewDecoder(gReader)
-	dps := []*opentsdb.DataPoint{}
-	err = decoder.Decode(&dps)
-	if err != nil {
-		verbose("error decoding data points: %v", err)
-		return
-	}
-	relayDps := []*opentsdb.DataPoint{}
-	for _, dp := range dps {
-		if rule, ok := denormalizationRules[dp.Metric]; ok {
-			if err = rule.Translate(dp); err == nil {
-				relayDps = append(relayDps, dp)
-			} else {
-				verbose("error translating points: %v", err.Error())
-			}
-		}
-	}
-	if len(relayDps) == 0 {
-		return
-	}
-	buf := &bytes.Buffer{}
-	gWriter := gzip.NewWriter(buf)
-	encoder := json.NewEncoder(gWriter)
-	err = encoder.Encode(relayDps)
-	if err != nil {
-		verbose("error encoding denormalized data points: %v", err)
-		return
-	}
-	if err = gWriter.Close(); err != nil {
-		verbose("error zipping denormalized data points: %v", err)
-		return
-	}
-	req, err := http.NewRequest("POST", tsdbPutURL, buf)
-	if err != nil {
-		verbose("error posting denormalized data points: %v", err)
-		return
-	}
-	req.Header.Set(typeHeader, "application/json")
-	req.Header.Set(encHeader, "gzip")
-
-	responseWriter := httptest.NewRecorder()
-	rp.relayPut(responseWriter, req, false)
-
-	verbose("relayed %d denormalized data points. Tsdb response: %d", len(relayDps), responseWriter.Code)
-}
-
-func (rp *relayProxy) relayMetadata(responseWriter http.ResponseWriter, r *http.Request) {
-	reader := &passthru{ReadCloser: r.Body}
-	r.Body = reader
-	w := &relayWriter{ResponseWriter: responseWriter}
-	rp.BosunProxy.ServeHTTP(w, r)
-	if w.code != 204 {
-		verbose("relayMetadata got status %d", w.code)
+func (rp *relayProxy) fastRelayMetadata(ctx *fasthttp.RequestCtx) {
+	req := &ctx.Request
+	resp := &ctx.Response
+	err := rp.BosunProxy.Do(req, resp)
+	if err != nil || resp.Header.StatusCode() != 204 {
+		verbose("ERROR relayMetadata got status %d, target: %v", resp.Header.StatusCode(), rp.TSDBProxy.Addr+string(req.URI().Path()))
 		collect.Add("metadata.error", tags, 1)
 		return
 	}
-	verbose("relayed metadata to bosun")
+	verbose("relayed metadata to bosun, status: %v, target: %v", resp.Header.StatusCode(), rp.TSDBProxy.Addr+string(req.URI().Path()))
 	collect.Add("metadata.relayed", tags, 1)
-	if r.Header.Get(relayHeader) != "" {
+	if req.Header.Peek(relayHeader) != nil {
 		return
 	}
 	if len(relayMetadataUrls) != 0 {
-		go func() {
+		relayReq := fasthttp.AcquireRequest()
+		req.BodyWriteTo(relayReq.BodyWriter())
+		req.Header.CopyTo(&relayReq.Header)
+		relayReq.Header.Add(relayHeader, myHost)
+		go func(req *fasthttp.Request) {
+			resp := fasthttp.AcquireResponse()
+			uri := fasthttp.AcquireURI()
+			defer func() {
+				fasthttp.ReleaseRequest(req)
+				fasthttp.ReleaseResponse(resp)
+				fasthttp.ReleaseURI(uri)
+			}()
 			for _, relayURL := range relayMetadataUrls {
-				body := bytes.NewBuffer(reader.buf.Bytes())
-				req, err := http.NewRequest(r.Method, relayURL, body)
+				uri.Parse([]byte(relayURL.Host), []byte(relayURL.Path))
+				req.SetRequestURIBytes(uri.FullURI())
+				err := fastclient.Do(req, resp)
 				if err != nil {
-					verbose("metadata %s error %v", relayURL, err)
+					verbose("ERROR secondary relay metadata error: %v, target: %v", err, string(req.URI().FullURI()))
 					continue
 				}
-				if contenttype := r.Header.Get(typeHeader); contenttype != "" {
-					req.Header.Set(typeHeader, contenttype)
-				}
-				if access := r.Header.Get(accessHeader); access != "" {
-					req.Header.Set(accessHeader, access)
-				}
-				if encoding := r.Header.Get(encHeader); encoding != "" {
-					req.Header.Set(encHeader, encoding)
-				}
-				req.Header.Add(relayHeader, myHost)
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					verbose("secondary relay metadata error: %v", err)
-					continue
-				}
-				// Drain up to 512 bytes and close the body to let the Transport reuse the connection
-				io.CopyN(ioutil.Discard, resp.Body, 512)
-				resp.Body.Close()
-				verbose("secondary relay metadata success")
+				verbose("secondary relay metadata success, status: %v, target: %v", resp.Header.StatusCode(), string(req.URI().FullURI()))
 			}
-		}()
+		}(relayReq)
 	}
 }
 
