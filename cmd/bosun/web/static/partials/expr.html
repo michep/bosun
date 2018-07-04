@@ -54,12 +54,12 @@
 <div class="row">
 	<div class="col-sm-12">
 		<form>
-		<div class="form-group">
-			<div tsresizable on-resize="editor.resize()" class='resize'>
-				<div ui-ace="{ onLoad : aceLoaded, mode: aceMode, theme: aceTheme, advanced: { fontSize: '14px', fontFamily: 'Menlo, Monaco, Consolas, monospace' }}"
-				 ng-model="expr"></div>
+			<div class="form-group">
+				<div tsresizable on-resize="editor.resize()" class='resize'>
+					<div ui-ace="{ onLoad : aceLoaded, mode: aceMode, theme: aceTheme, advanced: { fontSize: '14px', fontFamily: 'Menlo, Monaco, Consolas, monospace' }}"
+					ng-model="expr" ng-keydown="keydown($event)"></div>
+				</div>
 			</div>
-		</div>
 		</form>
 		<form class="form-inline">
 			<div class="form-group">

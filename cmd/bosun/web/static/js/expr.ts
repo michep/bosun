@@ -39,12 +39,9 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 	$scope.time = search.time || '';
 	$scope.expr = current;
 
-	var editor;
-
 	$scope.aceMode = 'bosun';
 	$scope.aceTheme = 'chrome';
-	$scope.aceLoaded = function (_editor) {
-		editor = _editor;
+	$scope.aceLoaded = function (editor) {
 		$scope.editor = editor;
 		editor.focus();
 		editor.getSession().setUseWrapMode(true);
@@ -52,7 +49,16 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 			path: 'ace/mode/' + $scope.aceMode,
 			v: Date.now()
 		});
+		editor.$blockScrolling = Infinity;
 	};
+	$scope.$on('$viewContentLoaded', () => {
+		setTimeout(() => {
+			var editor = $scope.editor;
+			var row = editor.session.getLength() - 1;
+			var column = editor.session.getLine(row).length;
+			editor.selection.moveTo(row, column);
+		});
+	});
 
 	$scope.running = current;
 	$scope.tab = search.tab || 'results';
@@ -64,6 +70,7 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 	if ($scope.expr) {
 
 		$scope.running = $scope.expr;
+		$scope.animate();
 
 		$http.post('/api/expr?' +
 		'date=' + (not_empty ? encodeURIComponent(ts.format("YYYY-MM-DD")) : "") +
@@ -144,6 +151,7 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 	$scope.keydown = function($event: any) {
 		if ($event.shiftKey && $event.keyCode == 13) {
 			$scope.set();
+			$event.preventDefault();
 		}
 	};
 
