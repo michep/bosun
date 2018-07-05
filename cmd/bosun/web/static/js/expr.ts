@@ -62,7 +62,6 @@ bosunControllers.controller('ExprCtrl', ['$scope', '$http', '$location', '$route
 
 	$scope.running = current;
 	$scope.tab = search.tab || 'results';
-	$scope.animate();
 	var dat = $scope.date ? $scope.date : ($scope.time ? moment().format("YYYY-MM-DD") : "");
 	var ts = moment(dat + " " + $scope.time, "YYYY-MM-DD HH:mm:ss").utc();
 	var not_empty = $scope.date || $scope.time;
