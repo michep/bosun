@@ -167,8 +167,8 @@ bosunApp.directive('tsState', ['$sce', '$http', function ($sce: ng.ISCEService, 
 			}
 			scope.state.RuleUrl = '/config?' +
 				'alert=' + encodeURIComponent(scope.state.Alert) +
-				'&fromDate=' + encodeURIComponent(scope.state.last.Time.format("YYYY-MM-DD")) +
-				'&fromTime=' + encodeURIComponent(scope.state.last.Time.format("HH:mm"));
+				'&fromDate=' + encodeURIComponent(moment(scope.state.last.Time).local().format("YYYY-MM-DD")) +
+				'&fromTime=' + encodeURIComponent(moment(scope.state.last.Time).local().format("HH:mm"));
 			var groups: string[] = [];
 			angular.forEach(scope.state.Group, (v, k) => {
 				groups.push(k + "=" + v);
