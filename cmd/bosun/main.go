@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"os/signal"
@@ -17,7 +16,6 @@ import (
 	"time"
 
 	"bosun.org/_version"
-
 	"bosun.org/annotate/backend"
 	"bosun.org/cmd/bosun/conf"
 	"bosun.org/cmd/bosun/conf/rule"
@@ -31,6 +29,7 @@ import (
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
 	"bosun.org/util"
+
 	"github.com/facebookgo/httpcontrol"
 	"gopkg.in/fsnotify.v1"
 )
@@ -93,6 +92,7 @@ var (
 	flagDev      = flag.Bool("dev", false, "enable dev mode: use local resources; no syslog")
 	flagSkipLast = flag.Bool("skiplast", false, "skip loading last datapoints from and to redis: useful for speeding up bosun startup time during development")
 	flagVersion  = flag.Bool("version", false, "Prints the version and exits")
+	flagPprof    = flag.Bool("pprof", false, "enable /debug/pprof endpoints")
 
 	mains []func() // Used to hook up syslog on *nix systems
 )
@@ -256,7 +256,7 @@ func main() {
 
 	go func() {
 		slog.Fatal(web.Listen(sysProvider.GetHTTPListen(), sysProvider.GetHTTPSListen(),
-			sysProvider.GetTLSCertFile(), sysProvider.GetTLSKeyFile(), *flagDev,
+			sysProvider.GetTLSCertFile(), sysProvider.GetTLSKeyFile(), *flagDev, *flagPprof,
 			sysProvider.GetTSDBHost(), reload, sysProvider.GetAuthConf(), startTime))
 	}()
 	go func() {

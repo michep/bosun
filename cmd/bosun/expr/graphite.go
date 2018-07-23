@@ -1,7 +1,6 @@
 package expr
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"bosun.org/graphite"
 	"bosun.org/models"
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 )
 

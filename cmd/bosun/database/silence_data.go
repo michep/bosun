@@ -1,11 +1,11 @@
 package database
 
 import (
-	"encoding/json"
 	"log"
 	"time"
 
 	"bosun.org/models"
+
 	"github.com/garyburd/redigo/redis"
 )
 

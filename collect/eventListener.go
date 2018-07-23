@@ -1,15 +1,15 @@
 package collect
 
 import (
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
 	"github.com/garyburd/redigo/redis"
+	"github.com/klauspost/compress/gzip"
 )
 
 func HandleCounterPut(server string, database int) http.HandlerFunc {

@@ -1,7 +1,6 @@
 package database
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 
 	"bosun.org/models"
 	"bosun.org/slog"
+
 	"github.com/garyburd/redigo/redis"
 )
 

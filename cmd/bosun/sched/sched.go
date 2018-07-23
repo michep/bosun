@@ -19,6 +19,7 @@ import (
 	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/bradfitz/slice"
 	"github.com/kylebrandt/boolq"

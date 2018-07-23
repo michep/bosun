@@ -1,7 +1,6 @@
 package rule
 
 import (
-	"encoding/json"
 	"fmt"
 	htemplate "html/template"
 	"io/ioutil"
@@ -12,15 +11,20 @@ import (
 	"strings"
 	"time"
 
-	"bosun.org/models"
-
 	"bosun.org/cmd/bosun/conf"
 	"bosun.org/cmd/bosun/conf/rule/parse"
 	"bosun.org/cmd/bosun/conf/template"
 	"bosun.org/cmd/bosun/expr"
 	eparse "bosun.org/cmd/bosun/expr/parse"
+	"bosun.org/models"
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
+	"github.com/json-iterator/go"
+)
+
+var (
+	json = jsoniter.ConfigFastest
 )
 
 type Conf struct {

@@ -1,7 +1,6 @@
 package expr
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -12,6 +11,7 @@ import (
 	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 )
 

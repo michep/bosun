@@ -1,7 +1,6 @@
 package expr // import "bosun.org/cmd/bosun/expr"
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -20,8 +19,10 @@ import (
 	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/influxdata/influxdb/client/v2"
+	"github.com/json-iterator/go"
 )
 
 type State struct {
@@ -66,7 +67,10 @@ type AlertStatusProvider interface {
 	GetUnknownAndUnevaluatedAlertKeys(alertName string) (unknown, unevaluated []models.AlertKey)
 }
 
-var ErrUnknownOp = fmt.Errorf("expr: unknown op type")
+var (
+	ErrUnknownOp = fmt.Errorf("expr: unknown op type")
+	json         = jsoniter.ConfigFastest
+)
 
 type Expr struct {
 	*parse.Tree

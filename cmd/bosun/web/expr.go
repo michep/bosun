@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -21,6 +20,7 @@ import (
 	"bosun.org/cmd/bosun/sched"
 	"bosun.org/models"
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/bradfitz/slice"
 )

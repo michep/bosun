@@ -3,17 +3,15 @@
 package expr
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
-	"sync"
-
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/jinzhu/now"
-
 	elastic "gopkg.in/olivere/elastic.v3"
 )
 

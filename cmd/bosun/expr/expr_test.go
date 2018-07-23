@@ -1,7 +1,6 @@
 package expr
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"bosun.org/opentsdb"
+
 	"github.com/influxdata/influxdb/client/v2"
 )
 
@@ -359,7 +359,7 @@ func TestSeriesOperations(t *testing.T) {
 				Results: ResultSlice{
 					&Result{
 						Value: Series{
-						// Should be empty
+							// Should be empty
 						},
 						Group: opentsdb.TagSet{"key": "a"},
 					},

@@ -1,11 +1,11 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"bosun.org/cmd/bosun/conf"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 )
 

@@ -1,11 +1,17 @@
 package database
 
 import (
-	"bosun.org/models"
-	"encoding/json"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"time"
+
+	"bosun.org/models"
+
+	"github.com/garyburd/redigo/redis"
+	"github.com/json-iterator/go"
+)
+
+var (
+	json = jsoniter.ConfigFastest
 )
 
 /*

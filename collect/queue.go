@@ -2,22 +2,26 @@ package collect
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"net/http/httptest"
-
 	"bosun.org/metadata"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
 	"github.com/GROpenSourceDev/go-ntlm-auth/ntlm"
+	"github.com/json-iterator/go"
+	"github.com/klauspost/compress/gzip"
+)
+
+var (
+	json = jsoniter.ConfigFastest
 )
 
 func queuer() {

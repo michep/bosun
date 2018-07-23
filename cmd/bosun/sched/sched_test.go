@@ -1,7 +1,6 @@
 package sched
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -19,6 +18,7 @@ import (
 	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 )
 

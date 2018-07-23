@@ -1,7 +1,6 @@
 package expr
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -9,10 +8,12 @@ import (
 	"bosun.org/cmd/bosun/expr/parse"
 	"bosun.org/models"
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/influxdata/influxdb/client/v2"
 	"github.com/influxdata/influxdb/influxql"
 	influxModels "github.com/influxdata/influxdb/models"
+	"github.com/json-iterator/go"
 )
 
 // Influx is a map of functions to query InfluxDB.
@@ -72,7 +73,7 @@ func InfluxQuery(e *State, T miniprofiler.Timer, db, query, startDuration, endDu
 			if err != nil {
 				return nil, err
 			}
-			n, ok := v[1].(json.Number)
+			n, ok := v[1].(jsoniter.Number)
 			if !ok {
 				return nil, fmt.Errorf("influx: expected json.Number")
 			}

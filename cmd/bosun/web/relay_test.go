@@ -2,7 +2,6 @@ package web
 
 import (
 	"bytes"
-	"compress/gzip"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +14,8 @@ import (
 	"bosun.org/cmd/bosun/conf/rule"
 	"bosun.org/cmd/bosun/database"
 	"bosun.org/cmd/bosun/database/test"
+
+	"github.com/klauspost/compress/gzip"
 )
 
 var testData database.DataAccess

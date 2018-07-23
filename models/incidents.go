@@ -1,14 +1,17 @@
 package models
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
 	"time"
 
 	"bosun.org/opentsdb"
+
+	"github.com/json-iterator/go"
 )
+
+var json = jsoniter.ConfigFastest
 
 type IncidentState struct {
 	// Since IncidentState is embedded into a template's Context these fields
@@ -137,7 +140,8 @@ func (s *IncidentState) IsActive() bool {
 }
 
 type Event struct {
-	Warn, Crit  *Result `json:",omitempty"`
+	Warn        *Result `json:",omitempty"`
+	Crit        *Result `json:",omitempty"`
 	Status      Status
 	Time        time.Time
 	Unevaluated bool

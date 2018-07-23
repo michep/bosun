@@ -2,7 +2,6 @@ package web
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"image/color"
 	"net/http"
@@ -16,8 +15,9 @@ import (
 	"bosun.org/metadata"
 	"bosun.org/models"
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
-	svg "github.com/ajstarks/svgo"
+	"github.com/ajstarks/svgo"
 	"github.com/bradfitz/slice"
 	"github.com/gorilla/mux"
 	"github.com/vdobler/chart"

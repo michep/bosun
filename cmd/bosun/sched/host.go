@@ -1,6 +1,5 @@
 package sched // import "bosun.org/cmd/bosun/sched"
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -8,6 +7,12 @@ import (
 	"bosun.org/metadata"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
+
+	"github.com/json-iterator/go"
+)
+
+var (
+	json = jsoniter.ConfigFastest
 )
 
 func (s *Schedule) Host(filter string) (map[string]*HostData, error) {

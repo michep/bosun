@@ -3,7 +3,6 @@ package opentsdb // import "bosun.org/opentsdb"
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,7 +20,11 @@ import (
 	"unicode/utf8"
 
 	"bosun.org/slog"
+
+	"github.com/json-iterator/go"
 )
+
+var json = jsoniter.ConfigFastest
 
 // ResponseSet is a Multi-Set Response:
 // http://opentsdb.net/docs/build/html/api_http/query/index.html#example-multi-set-response.

@@ -3,7 +3,6 @@ package metadata // import "bosun.org/metadata"
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -16,12 +15,15 @@ import (
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
 	"bosun.org/util"
+
+	"github.com/json-iterator/go"
 )
 
 var (
 	// AuthToken is an optional string that sets the X-Access-Token HTTP header
 	// which is used to authenticate against Bosun
 	AuthToken string
+	json      = jsoniter.ConfigFastest
 )
 
 // RateType is the type of rate for a metric: gauge, counter, or rate.

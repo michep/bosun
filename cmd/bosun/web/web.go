@@ -2,14 +2,13 @@ package web // import "bosun.org/cmd/bosun/web"
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"net/http/pprof"
 	"net/url"
 	"sort"
 	"strconv"
@@ -34,7 +33,9 @@ import (
 	"github.com/NYTimes/gziphandler"
 	"github.com/captncraig/easyauth"
 	"github.com/gorilla/mux"
+	"github.com/json-iterator/go"
 	"github.com/justinas/alice"
+	"github.com/klauspost/compress/gzip"
 )
 
 var (
@@ -50,6 +51,8 @@ var (
 	tokensEnabled bool
 	authEnabled   bool
 	startTime     time.Time
+
+	json = jsoniter.ConfigFastest
 )
 
 const (
@@ -75,7 +78,7 @@ func init() {
 		"HTTP response codes from the backend server for request relayed through Bosun.")
 }
 
-func Listen(httpAddr, httpsAddr, certFile, keyFile string, devMode bool, tsdbHost string, reloadFunc func() error, authConfig *conf.AuthConf, st time.Time) error {
+func Listen(httpAddr, httpsAddr, certFile, keyFile string, devMode bool, enablePprof bool, tsdbHost string, reloadFunc func() error, authConfig *conf.AuthConf, st time.Time) error {
 	startTime = st
 	if devMode {
 		slog.Infoln("using local web assets")
@@ -135,7 +138,7 @@ func Listen(httpAddr, httpsAddr, certFile, keyFile string, devMode bool, tsdbHos
 	handle("/api/config", JSON(Config), canViewConfig).Name("get_config").Methods(GET)
 
 	handle("/api/config_test", JSON(ConfigTest), canViewConfig).Name("config_test").Methods(POST)
-	handle("/api/save_enabled", JSON(SaveEnabled), fullyOpen).Name("seve_enabled").Methods(GET)
+	handle("/api/save_enabled", JSON(SaveEnabled), fullyOpen).Name("save_enabled").Methods(GET)
 
 	if schedule.SystemConf.ReloadEnabled() {
 		handle("/api/reload", JSON(Reload), canSaveConfig).Name("can_save").Methods(POST)
@@ -205,6 +208,11 @@ func Listen(httpAddr, httpsAddr, certFile, keyFile string, devMode bool, tsdbHos
 
 	var miniprofilerRoutes = http.StripPrefix(miniprofiler.PATH, http.HandlerFunc(miniprofiler.MiniProfilerHandler))
 	router.PathPrefix(miniprofiler.PATH).Handler(baseChain.Then(miniprofilerRoutes)).Name("miniprofiler")
+
+	if enablePprof {
+		slog.Infoln("pprof enabled")
+		attachProfiler(router)
+	}
 
 	//MUST BE LAST!
 	router.PathPrefix("/").Handler(baseChain.Then(auth.Wrap(JSON(Index), canViewDash))).Name("index")
@@ -968,4 +976,17 @@ func ErrorHistory(t miniprofiler.Timer, w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	return nil, nil
+}
+
+func attachProfiler(router *mux.Router) {
+	router.HandleFunc("/debug/pprof/", pprof.Index)
+	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+
+	// Manually add support for paths linked to by index page at /debug/pprof/
+	router.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	router.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+	router.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	router.Handle("/debug/pprof/block", pprof.Handler("block"))
 }

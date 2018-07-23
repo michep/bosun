@@ -4,18 +4,16 @@ package expr
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
-	elastic "gopkg.in/olivere/elastic.v5"
-
-	"sync"
-
 	"bosun.org/opentsdb"
+
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/jinzhu/now"
+	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 type ESQuery struct {

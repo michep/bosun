@@ -2,9 +2,12 @@ package util
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/json"
+
+	"github.com/json-iterator/go"
+	"github.com/klauspost/compress/gzip"
 )
+
+var json = jsoniter.ConfigFastest
 
 func MarshalGzipJson(data interface{}) ([]byte, error) {
 	buf := &bytes.Buffer{}

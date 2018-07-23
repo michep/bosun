@@ -3,7 +3,6 @@ package sched
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	htemplate "html/template"
 	"io"
@@ -14,11 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"bosun.org/collect"
-
 	"bosun.org/cmd/bosun/conf"
 	"bosun.org/cmd/bosun/conf/template"
 	"bosun.org/cmd/bosun/expr"
+	"bosun.org/collect"
 	"bosun.org/models"
 	"bosun.org/opentsdb"
 	"bosun.org/slog"
