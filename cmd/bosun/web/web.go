@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"bosun.org/_version"
 	"bosun.org/annotate/backend"
 	"bosun.org/annotate/web"
 	"bosun.org/cmd/bosun/conf"
@@ -29,6 +28,7 @@ import (
 	"bosun.org/slog"
 	"bosun.org/util"
 
+	"bosun.org/_version"
 	"github.com/MiniProfiler/go/miniprofiler"
 	"github.com/NYTimes/gziphandler"
 	"github.com/captncraig/easyauth"
@@ -214,6 +214,7 @@ func Listen(httpAddr, httpsAddr, certFile, keyFile string, devMode bool, enableP
 		attachProfiler(router)
 	}
 
+	router.PathPrefix("/api").HandlerFunc(http.NotFound)
 	//MUST BE LAST!
 	router.PathPrefix("/").Handler(baseChain.Then(auth.Wrap(JSON(Index), canViewDash))).Name("index")
 
