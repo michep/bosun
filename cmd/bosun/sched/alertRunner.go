@@ -52,7 +52,7 @@ func (s *Schedule) Run() error {
 			return nil
 		default:
 		}
-		ctx := &checkContext{utcNow(), cache.New(0)}
+		ctx := &checkContext{utcNow(), cache.New("alerts", 0)}
 		s.LastCheck = utcNow()
 		for _, a := range chs {
 			if (i+a.shift)%a.modulo != 0 {
