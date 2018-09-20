@@ -327,6 +327,11 @@ var builtins = map[string]parse.Func{
 		Return: models.TypeScalar,
 		F:      Epoch,
 	},
+	"currentdaytime": {
+		Args:   []models.FuncType{models.TypeString},
+		Return: models.TypeScalar,
+		F:      CurrentDayTime,
+	},
 	"filter": {
 		Args:          []models.FuncType{models.TypeVariantSet, models.TypeNumberSet},
 		VariantReturn: true,
@@ -714,6 +719,29 @@ func Epoch(e *State) (*Results, error) {
 	return &Results{
 		Results: []*Result{
 			{Value: Scalar(float64(e.now.Unix()))},
+		},
+	}, nil
+}
+
+func CurrentDayTime(e *State, d string) (*Results, error) {
+	var res float64
+	now := e.now
+	zero := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	delta := now.Sub(zero)
+
+	switch d {
+	case "seconds":
+		res = delta.Seconds()
+	case "minutes":
+		res = delta.Minutes()
+	case "hours":
+		res = delta.Hours()
+	default:
+		return nil, fmt.Errorf("argument of currentdaytime() must be seconds, minutes or hours")
+	}
+	return &Results{
+		Results: []*Result{
+			{Value: Scalar(res)},
 		},
 	}, nil
 }
