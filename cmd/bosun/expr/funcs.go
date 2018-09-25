@@ -732,7 +732,7 @@ func Epoch(e *State) (*Results, error) {
 
 func CurrentDayTime(e *State, d string) (*Results, error) {
 	var res float64
-	now := e.now
+	now := e.now.Local()
 	zero := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 	delta := now.Sub(zero)
 
@@ -743,6 +743,8 @@ func CurrentDayTime(e *State, d string) (*Results, error) {
 		res = delta.Minutes()
 	case "hours":
 		res = delta.Hours()
+	case "weekday":
+		res = float64(now.Weekday())
 	default:
 		return nil, fmt.Errorf("argument of currentdaytime() must be seconds, minutes or hours")
 	}
