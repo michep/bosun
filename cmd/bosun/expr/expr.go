@@ -35,6 +35,9 @@ type State struct {
 	autods             int
 	vValue             float64
 
+	// Origin allows the source of the expression to be identified for logging and debugging
+	Origin string
+
 	Timer miniprofiler.Timer
 
 	*Backends
@@ -100,7 +103,7 @@ func New(expr string, funcs ...map[string]parse.Func) (*Expr, error) {
 
 // Execute applies a parse expression to the specified OpenTSDB context, and
 // returns one result per group. T may be nil to ignore timings.
-func (e *Expr) Execute(backends *Backends, providers *BosunProviders, T miniprofiler.Timer, now time.Time, autods int, unjoinedOk bool) (r *Results, queries []opentsdb.Request, err error) {
+func (e *Expr) Execute(backends *Backends, providers *BosunProviders, T miniprofiler.Timer, now time.Time, autods int, unjoinedOk bool, origin string) (r *Results, queries []opentsdb.Request, err error) {
 	if providers.Squelched == nil {
 		providers.Squelched = func(tags opentsdb.TagSet) bool {
 			return false
@@ -111,6 +114,7 @@ func (e *Expr) Execute(backends *Backends, providers *BosunProviders, T miniprof
 		now:            now,
 		autods:         autods,
 		unjoinedOk:     unjoinedOk,
+		Origin:         origin,
 		Backends:       backends,
 		BosunProviders: providers,
 		Timer:          T,
@@ -119,7 +123,7 @@ func (e *Expr) Execute(backends *Backends, providers *BosunProviders, T miniprof
 }
 
 func (e *Expr) ExecuteState(s *State) (r *Results, queries []opentsdb.Request, err error) {
-	defer errRecover(&err)
+	defer errRecover(&err, s)
 	if s.Timer == nil {
 		s.Timer = new(miniprofiler.Profile)
 	} else {
@@ -134,17 +138,17 @@ func (e *Expr) ExecuteState(s *State) (r *Results, queries []opentsdb.Request, e
 
 // errRecover is the handler that turns panics into returns from the top
 // level of Parse.
-func errRecover(errp *error) {
+func errRecover(errp *error, s *State) {
 	e := recover()
 	if e != nil {
 		switch err := e.(type) {
 		case runtime.Error:
-			slog.Infof("%s: %s", e, debug.Stack())
+			slog.Errorf("Error: %s. Origin: %v. Expression: %s, Stack: %s", e, s.Origin, s.Expr, debug.Stack())
 			panic(e)
 		case error:
 			*errp = err
 		default:
-			slog.Infof("%s: %s", e, debug.Stack())
+			slog.Errorf("Error: %s. Origin: %v. Expression: %s, Stack: %s", e, s.Origin, s.Expr, debug.Stack())
 			panic(e)
 		}
 	}
@@ -213,11 +217,12 @@ func (a Series) Equal(b Series) bool {
 func (e ESQuery) Type() models.FuncType { return models.TypeESQuery }
 func (e ESQuery) Value() interface{}    { return e }
 func (e ESQuery) MarshalJSON() ([]byte, error) {
-	source, err := e.Query.Source()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(source)
+	// source, err := e.Query(esV2).Source()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return json.Marshal(source)
+	return json.Marshal("ESQuery")
 }
 
 type ESIndexer struct {
